@@ -83,3 +83,76 @@ def process_files_thread(input_zip, output_zip):
                     # إذا كان ملفاً آخر (صورة أو وورد)، انقله باسمه العربي كما هو
                     with z_in.open(info) as source:
                         z_out.writestr(fixed_name, source.read())
+
+        status_var.set("✅ اكتملت العملية بنجاح!")
+        root.after(0, lambda: messagebox.showinfo("نجاح", "تم فك الحماية بنجاح! الأسماء العربية الآن سليمة 100% يا أبو رزان."))
+
+    except Exception as e:
+        status_var.set("❌ حدث خطأ أثناء المعالجة")
+        root.after(0, lambda: messagebox.showerror("خطأ", f"حدث خطأ:\n{str(e)}"))
+
+    finally:
+        root.after(0, progress.stop)
+        root.after(0, lambda: btn.config(state=tk.NORMAL))
+        if os.path.exists(temp_unzip_dir): shutil.rmtree(temp_unzip_dir, ignore_errors=True)
+        if os.path.exists(temp_original_xlsx): os.remove(temp_original_xlsx)
+        if os.path.exists(temp_fixed_xlsx): os.remove(temp_fixed_xlsx)
+
+def start_process():
+    input_zip = filedialog.askopenfilename(
+        title="اختر ملف ZIP يحتوي على ملفات الإكسل", 
+        filetypes=[("Zip files", "*.zip")]
+    )
+    if not input_zip:
+        return
+
+    output_zip = filedialog.asksaveasfilename(
+        title="حفظ الملف النهائي باسم", 
+        defaultextension=".zip", 
+        filetypes=[("Zip files", "*.zip")]
+    )
+    if not output_zip:
+        return
+
+    btn.config(state=tk.DISABLED)
+    progress.start(15)
+    
+    threading.Thread(target=process_files_thread, args=(input_zip, output_zip), daemon=True).start()
+
+# --- إعداد الواجهة الرسومية ---
+root = tk.Tk()
+root.title("أداة فك حماية الإكسل - أبو رزان")
+root.geometry("450x300")
+root.configure(bg="#f4f4f4")
+
+# توسيط النافذة
+window_width = 450
+window_height = 300
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+x = int((screen_width / 2) - (window_width / 2))
+y = int((screen_height / 2) - (window_height / 2))
+root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+
+title_label = tk.Label(root, text="برنامج لفك حماية شيتات الإكسل", font=("Arial", 14, "bold"), bg="#f4f4f4", fg="#333333")
+title_label.pack(pady=(20, 5))
+
+dev_label = tk.Label(root, text="تطوير: أبو رزان", font=("Arial", 11, "italic"), bg="#f4f4f4", fg="#0066cc")
+dev_label.pack(pady=(0, 20))
+
+btn = tk.Button(root, text="📂 اختر الملف وابدأ الفك", font=("Arial", 12, "bold"), bg="#4CAF50", fg="white", 
+                padx=20, pady=5, cursor="hand2", command=start_process)
+btn.pack(pady=10)
+
+style = ttk.Style()
+style.theme_use('default')
+style.configure("TProgressbar", thickness=15)
+progress = ttk.Progressbar(root, style="TProgressbar", orient="horizontal", length=300, mode="indeterminate")
+progress.pack(pady=15)
+
+status_var = tk.StringVar()
+status_var.set("جاهز للعمل...")
+status_label = tk.Label(root, textvariable=status_var, font=("Arial", 10), bg="#f4f4f4", fg="#555555")
+status_label.pack(pady=5)
+
+root.mainloop()
