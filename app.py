@@ -10,36 +10,35 @@ def process_files_thread(input_zip, output_zip):
         root.after(0, lambda: status_var.set("جاري التجهيز للعمل في الذاكرة..."))
         
         with zipfile.ZipFile(input_zip, 'r') as z_in, zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED) as z_out:
-            infolist = z_in.infolist()
-            
-            for info in infolist:
-                # 1. قراءة بيانات الملف الأصلي أولاً
+            for info in z_in.infolist():
+                # 1. قراءة بيانات الملف الأصلي
                 try:
                     file_data = z_in.read(info)
                 except:
                     continue
                 
-                # 2. السحر هنا: إصلاح الاسم العربي جذرياً داخل النظام قبل الحفظ
-                if not (info.flag_bits & 0x800): # إذا كان الملف مضغوطاً بترميز ويندوز القديم
+                # 2. فك تشفير الاسم العربي
+                correct_name = info.filename
+                if not (info.flag_bits & 0x800): # إذا كان الترميز قديماً
                     try:
-                        # استرجاع البايتات الأصلية وتحويلها للغة العربية الصحيحة
-                        raw_bytes = info.filename.encode('cp437')
-                        correct_arabic_name = raw_bytes.decode('cp1256')
-                        info.filename = correct_arabic_name # تحديث اسم الملف في الذاكرة
+                        correct_name = info.filename.encode('cp437').decode('cp1256')
                     except:
                         pass
                 
                 # تخطي المجلدات الفارغة
                 if info.is_dir():
-                    z_out.writestr(info, b'')
                     continue
 
-                # إظهار الاسم العربي الصحيح على الشاشة
-                file_basename = os.path.basename(info.filename)
+                # إظهار الاسم على الشاشة
+                file_basename = os.path.basename(correct_name)
                 root.after(0, lambda name=file_basename: status_var.set(f"جاري معالجة: {name}"))
 
-                # 3. معالجة الإكسل
-                if info.filename.lower().endswith('.xlsx'):
+                # 3. السر هنا: إنشاء غلاف جديد تماماً للملف لإجبار الويندوز على قراءة العربي بشكل صحيح (UTF-8)
+                new_info = zipfile.ZipInfo(correct_name, info.date_time)
+                new_info.compress_type = zipfile.ZIP_DEFLATED
+
+                # 4. معالجة الإكسل
+                if correct_name.lower().endswith('.xlsx'):
                     xlsx_in_io = io.BytesIO(file_data)
                     xlsx_out_io = io.BytesIO()
 
@@ -62,16 +61,16 @@ def process_files_thread(input_zip, output_zip):
                             
                             x_out.writestr(x_info, x_data)
                     
-                    # 4. حفظ الإكسل المفتوح بالاسم العربي الصحيح
+                    # حفظ الإكسل المفتوح داخل الغلاف الجديد (بالاسم العربي)
                     modified_xlsx_bytes = xlsx_out_io.getvalue()
-                    z_out.writestr(info, modified_xlsx_bytes)
+                    z_out.writestr(new_info, modified_xlsx_bytes)
                     
                 else:
-                    # حفظ أي ملف آخر (صورة/وورد) بالاسم العربي الصحيح
-                    z_out.writestr(info, file_data)
+                    # حفظ أي ملف آخر داخل الغلاف الجديد
+                    z_out.writestr(new_info, file_data)
 
         root.after(0, lambda: status_var.set("✅ اكتملت العملية بنجاح!"))
-        root.after(0, lambda: messagebox.showinfo("نجاح 🏆", "ألف مبروك يا أبو رزان! تم فك الحماية وإصلاح الأسماء العربية بنسبة 100%."))
+        root.after(0, lambda: messagebox.showinfo("نجاح 🏆", "تم فك الحماية وإصلاح الأسماء العربية! الآن الملفات تظهر بأسمائها الأصلية."))
 
     except Exception as e:
         root.after(0, lambda: status_var.set("❌ حدث خطأ أثناء المعالجة"))
