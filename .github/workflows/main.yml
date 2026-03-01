@@ -18,14 +18,15 @@ jobs:
         python-version: '3.12'
         architecture: 'x86'
 
-    - name: Install PyInstaller
-      run: pip install pyinstaller
+    - name: Install Dependencies
+      run: pip install pyinstaller customtkinter
 
     - name: Build EXE
-      run: pyinstaller --noconsole --onefile app.py
+      # السطر أدناه مهم جداً لدمج التصميم العصري داخل البرنامج
+      run: pyinstaller --noconsole --onefile --collect-all customtkinter app.py
 
     - name: Upload EXE File
       uses: actions/upload-artifact@v4
       with:
-        name: Excel-Unlocker-App
+        name: Excel-Unlocker-Pro
         path: dist/app.exe
